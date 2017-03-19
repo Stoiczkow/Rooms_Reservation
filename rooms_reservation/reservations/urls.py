@@ -15,7 +15,12 @@ Including another URLconf
 """
 from django.conf.urls import url
 from django.contrib import admin
-
+from reservation.views import *
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
+    url(r'^room/new', NewRoom.as_view()),
+    url(r'^room/modify/(?P<id>(\d+))', ModifyRoom.as_view()),
+    url(r'^room/delete/(?P<id>(\d+))', DeleteRoom.as_view()),
+    url(r'^room/(?P<id>(\d+))', ShowRoom.as_view()),
+    url(r'^room/', ShowAll.as_view()),
 ]
