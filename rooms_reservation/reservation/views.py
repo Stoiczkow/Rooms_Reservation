@@ -7,6 +7,7 @@ from django.http.response import HttpResponse
 from django.shortcuts import *
 from datetime import datetime, date
 from django.db.models import Q
+from django.db.models.fields import Empty
 FORM = """
         <form method="POST">
         <p>Podaj nazwę sali:</p>
@@ -43,7 +44,7 @@ class ShowAll(View):
             <form action="/search/" method="GET">
                 <p>Nazwa sali:</p>
                 <input type="text" name="name">
-                <p>Pojemność sali:</p>
+                <p>Minimalna ojemność sali:</p>
                 <input type="number" min="0" name="capacity">
                 <p>Projektor:</p>
                 <input type="radio" name="is_projector" value="True" >Tak
@@ -181,10 +182,13 @@ class SearchResult(View):
             proj = True
         else:
             proj = False
-        rooms = Rooms.objects.filter(Q(name = request.GET.get("name")) | Q(capacity__gte= quan, projector = proj))
+        rooms = Rooms.objects.filter(Q(name = request.GET.get("name")) | Q(capacity__gte= quan)| Q(projector = proj))
         result = "<p>Wyniki wyszukiwania:</p> <ul>"
-        for i in rooms:
-            result += "<li>{}</li>".format(i.name)
+        if not rooms:
+            return HttpResponse(FORM2.format("<p>Brak wyników o podanych parametrach</p>"))
+        else:
+            for i in rooms:
+                result += "<li>{} <a href='/room/{}'><input type='submit' value='Sprawdź zajęte terminy i rezerwuj'></input></a><p>Pojemność: {}</p></li>".format(i.name, i.pk, i.capacity)
         
         result += "</ul>"
         return HttpResponse(FORM2.format(result))
