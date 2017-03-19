@@ -44,15 +44,17 @@ class ShowAll(View):
             <form action="/search/" method="GET">
                 <p>Nazwa sali:</p>
                 <input type="text" name="name">
-                <p>Minimalna ojemność sali:</p>
+                <p>Minimalna pojemność sali:</p>
                 <input type="number" min="0" name="capacity">
                 <p>Projektor:</p>
                 <input type="radio" name="is_projector" value="True" >Tak
                 <input type="radio" name="is_projector" value="False">Nie
+                <p>Od kiedy rezerwacja:</p>
+                <input type="date" name="day" min="{}">
                 <p><input type="submit" value="Szukaj"></p>
             </form>
         
-        """
+        """.format(datetime.now().date())
         return HttpResponse(FORM2.format(room))
 
 class ShowRoom(View):
@@ -66,8 +68,14 @@ class ShowRoom(View):
             is_projector = "nie ma"
         
         for res in reservations:
-            res_list += "<li>Od: {} Do: {}</li>".format(res.date_from, res.date_to)
-            
+            present = datetime.now().date()
+            date_str = str(res.date_to)
+            date_list = date_str.split("-")
+            date_to = date(int(date_list[0]), int(date_list[1]), int(date_list[2]))
+            if date_to >= present:
+                res_list += "<li>Od: {} Do: {}</li>".format(res.date_from, res.date_to)
+            else:
+                pass
            
         details = """
             <p><b>{}</b></p>
@@ -182,14 +190,32 @@ class SearchResult(View):
             proj = True
         else:
             proj = False
+        
+        present = datetime.now().date()
+        date_list = request.GET.get("day").split("-")
+        try:
+            date_from = date(int(date_list[0]), int(date_list[1]), int(date_list[2]))
+        except ValueError:
+            return HttpResponse(FORM2.format("<p>Podana data jest nieprawidłowa</p>"))
         rooms = Rooms.objects.filter(Q(name = request.GET.get("name")) | Q(capacity__gte= quan)| Q(projector = proj))
         result = "<p>Wyniki wyszukiwania:</p> <ul>"
-        if not rooms:
-            return HttpResponse(FORM2.format("<p>Brak wyników o podanych parametrach</p>"))
+        if date_from < present:
+            return HttpResponse(FORM2.format("<p>Podana data jest z przeszłości</p>"))
         else:
-            for i in rooms:
-                result += "<li>{} <a href='/room/{}'><input type='submit' value='Sprawdź zajęte terminy i rezerwuj'></input></a><p>Pojemność: {}</p></li>".format(i.name, i.pk, i.capacity)
-        
+            if not rooms:
+                return HttpResponse(FORM2.format("<p>Brak wyników o podanych parametrach</p>"))
+            else:
+                for i in rooms:
+                    reservation = Reservations.objects.filter(room_id = i.pk)
+                    if not reservation:
+                        result += "<li>{} <a href='/room/{}'><input type='submit' value='Sprawdź zajęte terminy i rezerwuj'></input></a><p>Pojemność: {}</p></li>".format(i.name, i.pk, i.capacity)
+                    else:
+                        for res in reservation:
+                            if res.date_from < date_from < res.date_to:
+                                break
+                            else:
+                                result += "<li>{} <a href='/room/{}'><input type='submit' value='Sprawdź zajęte terminy i rezerwuj'></input></a><p>Pojemność: {}</p></li>".format(i.name, i.pk, i.capacity)
+                                break
         result += "</ul>"
         return HttpResponse(FORM2.format(result))
 
