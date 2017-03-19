@@ -5,6 +5,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.http.response import HttpResponse
 from django.shortcuts import *
+from datetime import datetime, date
 
 FORM = """
         <form method="POST">
@@ -43,18 +44,29 @@ class ShowAll(View):
 class ShowRoom(View):
     def get(self, request, id):
         room = Rooms.objects.get(pk = int(id))
+        reservations = Reservations.objects.filter(room_id = int(id))
+        res_list = ""
         if room.projector == True:
             is_projector = "jest"
         else:
             is_projector = "nie ma"
+        
+        for res in reservations:
+            res_list += "<li>Od: {} Do: {}</li>".format(res.date_from, res.date_to)
             
+           
         details = """
             <p><b>{}</b></p>
             <ul>
                 <li>Pojemność: {}</li>
                 <li>Projektor: {}</li>
             </ul>
-        """.format(room.name, room.capacity, is_projector)
+            <p>Obecne rezerwacje:</p>
+                <ul>
+                    {}
+                </ul>
+            <p><a href="/reservation/{}"><input type="button" value="Rezerwuj salę"></a></p>
+        """.format(room.name, room.capacity, is_projector, res_list, room.pk)
         return HttpResponse(FORM2.format(details))
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -99,3 +111,56 @@ class DeleteRoom(View):
             return redirect("/room/")
         else:
             return redirect("/room/")
+        
+@method_decorator(csrf_exempt, name="dispatch")
+class BookRoom(View):
+    def get(self, request, id):
+        room = Rooms.objects.get(pk = int(id))
+        present_day = datetime.now().date()
+        booking = """
+        <form method="POST">
+            <p>Rezerwujesz salę: {}</p>
+            <p>Podaj od kiedy:</p>
+            <input type="date" name="from" min="{}">
+            <p>Podaj do kiedy:</p>
+            <input type="date" name="to" min="{}">
+            <p>Dodatkowe uwagi</p>
+            <input type="text" name="desc">
+            <p><input type="submit" value="Rezerwuj"></p>
+        </form>
+        """.format(room.name, present_day, present_day)
+        
+        return HttpResponse(FORM2.format(booking))
+        
+    def post(self, request, id):
+        reservations = Reservations.objects.filter(room_id = int(id))
+        present = datetime.now().date()
+        date_from = request.POST.get("from").split("-")
+        date_to = request.POST.get("to").split("-")
+        try:
+            date_1 = date(int(date_from[0]), int(date_from[1]), int(date_from[2]))
+            date_2 = date(int(date_to[0]), int(date_to[1]), int(date_to[2]))
+        except(ValueError, IndexError):
+            return HttpResponse(FORM2.format("""<p>Podana wartość nie jest datą lub podałeś datę w złym formacie. Prawidłowy format: YYYY-MM-DD</p>
+                                                <p><a href="/reservation/{}"><input type="button" value="Powrót do rezerwacji"></a></p>""".format(id)))
+        is_booked = False
+        
+        for reservation in reservations:
+            date_from_db = date(int(reservation.date_from.year), int(reservation.date_from.month), int(reservation.date_from.day))
+            date_to_db = date(int(reservation.date_to.year), int(reservation.date_to.month), int(reservation.date_to.day))
+            if date_from_db <= date_1 <= date_to_db or date_from_db <= date_2 <= date_to_db or date_1 <= date_from_db <= date_2 or date_1 <= date_to_db <= date_2:
+                is_booked = True 
+            
+        if date_1 > present and is_booked == False:
+            days = abs(date_1 - date_2)
+            res1 = Reservations.objects.create(date_from = request.POST.get("from"), date_to = request.POST.get("to"), days = days.days, description = request.POST.get("desc"), room = Rooms.objects.get(pk = int(id)))
+            return HttpResponse(FORM2.format("<p>Dodano rezerwację!</p>"))
+        else:
+            return HttpResponse(FORM2.format("<p>Podałeś datę z przeszłości lub w podanym okresie sala jest już zarezerwowana</p>"))
+        
+        
+
+
+        
+        
+        
