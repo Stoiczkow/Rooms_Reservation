@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http.response import HttpResponse
 from django.shortcuts import *
 from datetime import datetime, date
-
+from django.db.models import Q
 FORM = """
         <form method="POST">
         <p>Podaj nazwę sali:</p>
@@ -38,7 +38,20 @@ class ShowAll(View):
         room = "<h1>Dostępne sale:</h1><ol>"
         for i in Rooms.objects.all():
             room += "<li>{} <a href='/room/{}' title='Szczegóły'>&#10067;</a> <a href='/room/modify/{}' title='Edytuj'>&#9998;</a> <a href='/room/delete/{}' title='Usuń'>&#128465;</a></li>".format(i.name, i.pk, i.pk, i.pk)
-        room +="</ol>"
+        room +="""</ol>
+            <h2>Szukaj sali:</h2>
+            <form action="/search/" method="GET">
+                <p>Nazwa sali:</p>
+                <input type="text" name="name">
+                <p>Pojemność sali:</p>
+                <input type="number" min="0" name="capacity">
+                <p>Projektor:</p>
+                <input type="radio" name="is_projector" value="True" >Tak
+                <input type="radio" name="is_projector" value="False">Nie
+                <p><input type="submit" value="Szukaj"></p>
+            </form>
+        
+        """
         return HttpResponse(FORM2.format(room))
 
 class ShowRoom(View):
@@ -158,7 +171,23 @@ class BookRoom(View):
         else:
             return HttpResponse(FORM2.format("<p>Podałeś datę z przeszłości lub w podanym okresie sala jest już zarezerwowana</p>"))
         
+class SearchResult(View):
+    def get(self, request):
+        if request.GET.get("capacity") == "":
+            quan = 0
+        else:
+            quan = int(request.GET.get("capacity"))
+        if request.GET.get("is_projector") == "True":
+            proj = True
+        else:
+            proj = False
+        rooms = Rooms.objects.filter(Q(name = request.GET.get("name")) | Q(capacity__gte= quan, projector = proj))
+        result = "<p>Wyniki wyszukiwania:</p> <ul>"
+        for i in rooms:
+            result += "<li>{}</li>".format(i.name)
         
+        result += "</ul>"
+        return HttpResponse(FORM2.format(result))
 
 
         

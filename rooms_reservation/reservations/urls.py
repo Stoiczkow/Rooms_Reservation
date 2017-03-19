@@ -24,4 +24,5 @@ urlpatterns = [
     url(r'^room/(?P<id>(\d+))', ShowRoom.as_view()),
     url(r'^room/', ShowAll.as_view()),
     url(r'^reservation/(?P<id>(\d+))', BookRoom.as_view()),
+    url(r'^search/', SearchResult.as_view()),
 ]
